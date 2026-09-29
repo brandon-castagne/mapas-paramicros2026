@@ -1,0 +1,54 @@
+# Compila el APK de Mapa Sucre en los servidores de GitHub (gratis).
+# Se ejecuta solo cada vez que subes cambios, o a mano desde la pestaña "Actions" > "Compilar APK" > "Run workflow".
+# Al terminar, el APK aparece al final de la ejecución, en "Artifacts" (mapa-sucre-apk).
+name: Compilar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Aceptar licencias del SDK de Android
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Copiar la app web (carpeta www) al proyecto Android
+        run: npx cap sync android
+
+      - name: Compilar el APK firmado
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -PappVersionCode=${{ github.run_number }} \
+            -PappVersionName=1.${{ github.run_number }}
+
+      - name: Guardar el APK para descargarlo
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapa-sucre-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
