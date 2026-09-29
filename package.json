@@ -1,0 +1,16 @@
+{
+  "name": "mapa-sucre-apk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mapa Sucre: mapa sin internet con micros de Sucre (APK con Capacitor)",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
+}

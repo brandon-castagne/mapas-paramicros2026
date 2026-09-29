@@ -1,0 +1,9 @@
+{
+  "appId": "com.brandon.mapasucre",
+  "appName": "Mapa Sucre",
+  "webDir": "www",
+  "backgroundColor": "#f2efe9",
+  "server": {
+    "androidScheme": "https"
+  }
+}

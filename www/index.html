@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mapa Sucre</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#1f6feb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mapa Sucre">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="lib/maplibre-gl.css">
+<style>
+  :root{
+    --bg:#ffffff; --bgt:rgba(255,255,255,.88); --fg:#1b1f24; --muted:#6b7280; --line:#e5e7eb; --accent:#1f6feb; --danger:#e11d48;
+    --shadow:0 2px 12px rgba(0,0,0,.22);
+    --top:env(safe-area-inset-top,0px); --bottom:env(safe-area-inset-bottom,0px);
+  }
+  body.dark{ --bg:#1c2026; --bgt:rgba(24,28,33,.82); --fg:#e8ecf1; --muted:#9aa4b2; --line:#2d343d; --shadow:0 2px 12px rgba(0,0,0,.6); }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg); background:#f2efe9; overflow:hidden; }
+  body.dark{ background:#14181d; }
+  #map{ position:absolute; inset:0; }
+
+  /* Buscador */
+  #topbar{ position:absolute; z-index:20; top:calc(10px + var(--top)); left:10px; right:10px; max-width:560px; margin:0 auto; }
+  #searchbox{ display:flex; align-items:center; background:var(--bg); border-radius:14px; box-shadow:var(--shadow); padding:0 6px 0 14px; height:48px; }
+  #searchbox svg{ flex:none; color:var(--muted); }
+  #q{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--fg); font-size:16px; padding:0 10px; height:100%; }
+  #q::-webkit-search-cancel-button{ display:none; }
+  #btnClear{ display:none; border:0; background:transparent; color:var(--muted); font-size:20px; width:40px; height:40px; border-radius:20px; }
+  #results{ list-style:none; margin:6px 0 0; padding:0; background:var(--bg); border-radius:14px; box-shadow:var(--shadow); max-height:52vh; overflow:auto; display:none; }
+  #results li{ padding:11px 14px; border-bottom:1px solid var(--line); cursor:pointer; }
+  #results li:last-child{ border-bottom:0; }
+  #results li:active{ background:var(--line); }
+  #results .n{ font-size:15px; }
+  #results .t{ font-size:12px; color:var(--muted); margin-top:2px; }
+  #results .empty{ color:var(--muted); cursor:default; }
+
+  /* Botones flotantes */
+  #fab{ position:absolute; z-index:15; left:10px; bottom:calc(28px + var(--bottom)); display:flex; flex-direction:column; gap:10px; }
+  .fab{ width:46px; height:46px; border-radius:23px; border:0; background:var(--bg); color:var(--fg); box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; }
+  .fab:active{ transform:scale(.96); }
+  .maplibregl-ctrl-bottom-right{ bottom:calc(20px + var(--bottom)); }
+
+  /* Hojas inferiores */
+  .sheet{ position:absolute; z-index:30; left:0; right:0; bottom:0; margin:0 auto; max-width:560px; background:var(--bg); border-radius:18px 18px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.3);
+          padding:16px 16px calc(16px + var(--bottom)); transform:translateY(105%); transition:transform .22s ease; }
+  #panelViaje, #tripBar{ background:var(--bgt); backdrop-filter:blur(14px) saturate(1.3); -webkit-backdrop-filter:blur(14px) saturate(1.3); }
+  .sheet.open{ transform:translateY(0); }
+  .sheet h2{ margin:0 0 2px; font-size:18px; padding-right:36px; }
+  .sheet .sub{ color:var(--muted); font-size:13px; margin-bottom:12px; word-break:break-word; }
+  .sheet .close{ position:absolute; right:10px; top:10px; border:0; background:transparent; color:var(--muted); font-size:22px; width:36px; height:36px; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn{ border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:10px; padding:10px 14px; font-size:14px; }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.danger{ color:var(--danger); border-color:var(--danger); }
+  #panelSitios{ max-height:70vh; overflow:auto; }
+  #listaSitios{ list-style:none; margin:8px 0 12px; padding:0; }
+  #listaSitios li{ display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--line); }
+  #listaSitios .info{ flex:1; min-width:0; cursor:pointer; }
+  #listaSitios .info b{ display:block; font-size:15px; font-weight:600; }
+  #listaSitios .info span{ font-size:12px; color:var(--muted); }
+  #listaSitios .del{ border:0; background:transparent; color:var(--danger); font-size:20px; width:38px; height:38px; }
+  .vacio{ color:var(--muted); font-size:14px; padding:14px 0; }
+
+  /* Micros */
+  #sheetMicros{ margin:0 0 12px; display:none; }
+  #sheetMicros .lbl{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .chip{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:16px; padding:6px 11px; font-size:13px; margin:0 6px 6px 0; }
+  .sw{ display:inline-block; width:14px; height:14px; border-radius:4px; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.25); flex:none; }
+  #panelRutas{ max-height:72vh; overflow:auto; }
+  #panelRutas .hint{ font-size:12px; color:var(--muted); margin:2px 0 10px; }
+  #listaRutas{ list-style:none; margin:0 0 12px; padding:0; }
+  #listaRutas li{ display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line); cursor:pointer; font-size:15px; }
+  #listaRutas li .name{ flex:1; }
+  #listaRutas input{ width:20px; height:20px; accent-color:var(--accent); pointer-events:none; }
+
+  /* Planificador de viaje */
+  #panelViaje{ max-height:min(78vh, 560px); overflow:auto; }
+  #tripBar{ z-index:28; }
+  .tprow{ display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .tprow .dot{ width:28px; height:28px; border-radius:14px; color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .dot.g{ background:#16a34a; } .dot.r{ background:#dc2626; }
+  .tpinfo{ flex:1; min-width:120px; } .tpinfo b{ display:block; font-size:14px; } .tpinfo span{ font-size:12px; color:var(--muted); word-break:break-word; }
+  .tprow .btn{ padding:8px 10px; font-size:13px; }
+  .lbl{ font-size:12px; color:var(--muted); margin:12px 0 6px; }
+  .seg{ display:flex; gap:6px; margin-bottom:12px; }
+  .seg button{ flex:1; border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:10px; padding:9px 0; font-size:14px; }
+  .seg button.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .tgroup{ font-size:13px; font-weight:600; margin:14px 0 4px; }
+  .card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; cursor:pointer; }
+  .card:active{ background:var(--line); }
+  .card .top{ display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600; }
+  .card .top .t{ margin-left:auto; color:var(--accent); font-weight:600; font-size:14px; white-space:nowrap; }
+  .card .d{ font-size:12.5px; color:var(--muted); margin-top:4px; }
+  .note{ font-size:12px; color:var(--muted); margin:8px 0; line-height:1.4; }
+  #pickBanner{ display:none; align-items:center; gap:8px; background:var(--accent); color:#fff; border-radius:12px; padding:9px 8px 9px 14px; font-size:13.5px; box-shadow:var(--shadow); margin-top:8px; }
+  #pickBanner.show{ display:flex; }
+  #pickBanner span{ flex:1; line-height:1.25; }
+  #pickBanner button{ flex:none; border:0; background:rgba(255,255,255,.25); color:#fff; border-radius:16px; padding:7px 12px; font-size:13px; }
+
+  /* Carga */
+  #loading{ position:absolute; z-index:50; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:#f2efe9; color:#333; font-size:15px; transition:opacity .3s; }
+  body.dark #loading{ background:#14181d; color:#ccc; }
+  #loading.hide{ opacity:0; pointer-events:none; }
+  .bar{ width:200px; height:6px; background:rgba(0,0,0,.12); border-radius:3px; overflow:hidden; }
+  .bar i{ display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+  #toast{ position:absolute; z-index:60; left:50%; bottom:calc(90px + var(--bottom)); transform:translateX(-50%); background:rgba(20,20,20,.92); color:#fff; padding:10px 16px; border-radius:20px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:86vw; text-align:center; }
+  #toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="topbar">
+  <div id="pickBanner"><span id="pickText">Busca un lugar o toca el mapa: origen</span><button id="pickCancel">Cancelar</button></div>
+  <div id="searchbox">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Buscar calle, lugar o negocio" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+    <button id="btnClear" aria-label="Borrar">✕</button>
+  </div>
+  <ul id="results"></ul>
+</div>
+
+<div id="fab">
+  <button class="fab" id="btnSitios" aria-label="Mis sitios">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>
+  </button>
+  <button class="fab" id="btnViaje" aria-label="¿Qué micro me lleva?">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H14a3.5 3.5 0 0 0 0-7h-4a3.5 3.5 0 0 1 0-7h5.8"/></svg>
+  </button>
+  <button class="fab" id="btnRutas" aria-label="Micros">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 21v-3M16 21v-3"/><circle cx="8" cy="14.5" r=".8" fill="currentColor"/><circle cx="16" cy="14.5" r=".8" fill="currentColor"/></svg>
+  </button>
+  <button class="fab" id="btnTema" aria-label="Modo oscuro">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+</div>
+
+<div id="sheet" class="sheet">
+  <button class="close" id="sheetClose" aria-label="Cerrar">✕</button>
+  <h2 id="sheetTitle"></h2>
+  <div class="sub" id="sheetSub"></div>
+  <div id="sheetMicros"><div class="lbl">Micros que pasan cerca (toca para ver la ruta)</div><div id="chipsMicros"></div></div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn primary" id="btnDesde">Micro desde aquí</button>
+    <button class="btn primary" id="btnHasta">Micro hasta aquí</button>
+  </div>
+  <div class="row">
+    <button class="btn" id="btnGuardar">Guardar sitio</button>
+    <button class="btn" id="btnCopiar">Copiar coordenadas</button>
+    <button class="btn" id="btnMaps">Abrir en Maps</button>
+  </div>
+</div>
+
+<div id="panelSitios" class="sheet">
+  <button class="close" id="panelClose" aria-label="Cerrar">✕</button>
+  <h2>Mis sitios</h2>
+  <ul id="listaSitios"></ul>
+  <div class="row">
+    <button class="btn" id="btnExportar">Exportar copia</button>
+    <button class="btn" id="btnImportar">Importar</button>
+  </div>
+  <input type="file" id="fileImport" accept="application/json,.json" hidden>
+</div>
+
+<div id="panelRutas" class="sheet">
+  <button class="close" id="rutasClose" aria-label="Cerrar">✕</button>
+  <h2>Micros</h2>
+  <div class="hint">Línea continua = sentido A, punteada = sentido B. Toca una línea para mostrarla u ocultarla.</div>
+  <ul id="listaRutas"></ul>
+  <div class="row"><button class="btn" id="btnOcultarRutas">Ocultar todas</button></div>
+</div>
+
+<div id="panelViaje" class="sheet">
+  <button class="close" id="viajeClose" aria-label="Cerrar">✕</button>
+  <h2>¿Qué micro me lleva?</h2>
+  <div class="tprow">
+    <span class="dot g">A</span>
+    <div class="tpinfo"><b>Origen</b><span id="tripFromTxt">Sin marcar</span></div>
+    <button class="btn" id="tripPickFrom">Marcar en el mapa</button>
+    <button class="btn" id="tripGps">Mi ubicación</button>
+  </div>
+  <div class="tprow">
+    <span class="dot r">B</span>
+    <div class="tpinfo"><b>Destino</b><span id="tripToTxt">Sin marcar</span></div>
+    <button class="btn" id="tripPickTo">Marcar en el mapa</button>
+  </div>
+  <div class="lbl">Caminar máximo hasta subir / desde bajar</div>
+  <div class="seg" id="tripRadius">
+    <button data-r="200">200 m</button><button data-r="350" class="on">350 m</button><button data-r="500">500 m</button>
+  </div>
+  <div id="tripResults"></div>
+  <div class="row" style="margin-top:6px">
+    <button class="btn" id="tripSwap">⇅ Invertir</button>
+    <button class="btn" id="tripClear">Borrar todo</button>
+  </div>
+</div>
+
+<div id="tripBar" class="sheet">
+  <button class="close" id="tripBarClose" aria-label="Quitar ruta">✕</button>
+  <h2 id="tripBarTitle"></h2>
+  <div class="sub" id="tripBarSub"></div>
+  <div class="row"><button class="btn primary" id="tripBarBack">Ver resultados</button><button class="btn" id="tripBarOff">Quitar ruta</button></div>
+</div>
+
+<div id="loading"><div>Cargando mapa de Sucre…</div><div class="bar"><i id="barFill"></i></div><div id="pct" style="font-size:13px;opacity:.7"></div></div>
+<div id="toast"></div>
+
+<script src="lib/maplibre-gl.js"></script>
+<script src="lib/pmtiles.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+MAPA SUCRE — proyecto para generar el APK
+==========================================
+Esto NO es el APK todavía: es el proyecto. GitHub lo compila por ti (gratis) y te entrega el APK.
+La app lleva TODO adentro (mapa, rutas, letras): no necesita internet ni hosting.
+
+PASO A PASO
+-----------
+1) En github.com crea un repositorio NUEVO y márcalo como PRIVADO (nombre libre, por ejemplo "mapa-sucre-apk").
+
+2) Sube el contenido de esta carpeta (los archivos, no el .zip). Dos formas:
+
+   a) Con git (recomendado, sube todo sin límites):
+        git init -b main
+        git add -A
+        git commit -m "Mapa Sucre APK"
+        git remote add origin https://github.com/TU-USUARIO/mapa-sucre-apk.git
+        git push -u origin main
+
+   b) Desde la web: "Add file > Upload files" y arrastra TODO el contenido (son unos 80 archivos;
+      el límite de GitHub es 100 por subida). Incluye la carpeta oculta ".github".
+      Si después no aparece el flujo en la pestaña Actions, créalo a mano:
+      "Add file > Create new file", nombre  .github/workflows/build-apk.yml  y pega el contenido
+      del archivo que viene en esta carpeta.
+
+3) Entra a la pestaña "Actions" del repositorio. Si no arranca solo: "Compilar APK" > "Run workflow".
+   Tarda unos minutos (estimado: 5 a 10).
+
+4) Cuando termine (círculo verde), abre esa ejecución y baja hasta "Artifacts": descarga "mapa-sucre-apk".
+   Es un .zip que contiene app-release.apk. Descarga y guarda el APK: GitHub borra los artifacts pasado un tiempo.
+
+5) Pasa el APK al teléfono (cable, WhatsApp a ti mismo, Drive...) y ábrelo.
+   Android te pedirá permitir "instalar apps de fuentes desconocidas" para ese explorador de archivos.
+   Si sale un aviso de Play Protect, elige "Instalar de todos modos" (la app está firmada por ti, no por Google).
+
+ACTUALIZAR LA APP
+-----------------
+Cambia lo que quieras dentro de la carpeta "www" y vuelve a subirlo al repositorio: Actions compila un APK nuevo.
+Instálalo ENCIMA del anterior: conserva tus sitios guardados, porque todas las compilaciones usan la misma firma.
+Si desinstalas la app primero, pierdes "Mis sitios" (copia antes con "Exportar copia").
+
+IMPORTANTE
+----------
+- Mantén el repositorio PRIVADO. La llave de firma (android/app/mapa-sucre.keystore y sus contraseñas en
+  android/app/build.gradle) está dentro del proyecto. Si la pierdes, no podrás instalar actualizaciones encima
+  de la app ya instalada (tendrías que desinstalarla).
+- Las rutas de micros vienen de la otra app; el mapa es de OpenStreetMap/MapTiler (la atribución se ve en el mapa).
+
+DIFERENCIAS CON LA VERSIÓN WEB
+------------------------------
+- "Exportar copia" copia el texto de tus sitios al portapapeles (pégalo en una nota o mensaje);
+  "Importar" te pide pegar ese texto. Dentro del APK no se pueden descargar archivos.
+- El botón "atrás" de Android cierra la app.
+- "Abrir en Maps" abre Google Maps fuera de la app.
+- No hay actualización automática: se actualiza instalando un APK nuevo.
+
+SI LA COMPILACIÓN FALLA
+-----------------------
+En Actions abre la ejecución con la X roja, entra al paso que falló y copia las últimas ~30 líneas del error.
+
+ALTERNATIVA CON ANDROID STUDIO (PC)
+-----------------------------------
+  npm install
+  npx cap sync android
+  npx cap open android      (Build > Build APK(s), o Generate Signed Bundle / APK)
